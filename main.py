@@ -57,6 +57,54 @@ def is_win(bitboard: int) -> bool:
                 mask |= 1 << (z*16 + y*4 + x)
             lines.append(mask)
 
+    # 斜め
+    # x方向
+    for x in range(4):
+        mask = 0
+        # 斜め1
+        for w in range(4):
+            z = w
+            y = w
+            mask |= 1<< (z*16 + y*4 + x)
+        lines.append(mask)
+        mask = 0
+        for w in range(4):
+            z = w
+            y = 3 - w
+            mask |= 1<< (z*16 + y*4 + x)
+        lines.append(mask)
+    # y方向　# 斜め1
+    for y in range(4):
+        mask = 0
+        
+        for w in range(4):
+            z = w
+            x = w
+            mask |= 1<< (z*16 + y*4 + x)
+        lines.append(mask)
+        mask = 0
+        for w in range(4):
+            z = w
+            x = 3 - w
+            mask |= 1<< (z*16 + y*4 + x)
+        lines.append(mask)
+    
+    # z方向　# 斜め1
+    for z in range(4):
+        mask = 0
+        for w in range(4):
+            y = w
+            x = w
+            mask |= 1<< (z*16 + y*4 + x)
+        lines.append(mask)
+        mask = 0
+        for w in range(4):
+            y = w
+            x = 3 - w
+            mask |= 1<< (z*16 + y*4 + x)
+        lines.append(mask)
+    
+    # 斜め種類
     for mask in lines:
         if (bitboard & mask) == mask:
             return True
