@@ -5,7 +5,7 @@
 import importlib.util
 from typing import List, Tuple
 from abc import ABC, abstractmethod
-from stub_board import board
+from stub_board import board,player,last_move
 
 Board = List[List[List[int]]] 
 
@@ -49,9 +49,6 @@ if __name__ == "__main__":
             if board[z][y][x] == 0:
                 return False
         return True
-
-    player = 1
-    last_move = (2, 3, 0)
 
     x, y = ai.get_move(board, player, last_move)
 
