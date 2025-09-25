@@ -1,7 +1,6 @@
 from typing import List, Tuple, Optional
 import time
-from local_driver import Alg3D, Board # ローカル検証用
-#from framework import Alg3D, Board # 本番用
+from local_driver import Alg3D, Board
 
 class WinningPatterns:
     @staticmethod
@@ -57,28 +56,9 @@ class WinningPatterns:
         
         return lines
 
-class TranspositionTable:
-    def __init__(self, size=100000):
-        self.table = {}
-        self.max_size = size
-    
-    def get_board_hash(self, board: Board) -> str:
-        return str(board)
-    
-    def store(self, board: Board, depth: int, score: int, flag: str, best_move: Optional[Tuple[int, int]]):
-        board_hash = self.get_board_hash(board)
-        if len(self.table) < self.max_size:
-            self.table[board_hash] = (depth, score, flag, best_move)
-    
-    def lookup(self, board: Board, depth: int) -> Optional[Tuple[int, str, Optional[Tuple[int, int]]]]:
-        board_hash = self.get_board_hash(board)
-        if board_hash in self.table:
-            stored_depth, score, flag, best_move = self.table[board_hash]
-            if stored_depth >= depth:
-                return score, flag, best_move
-        return None
-
 class GameEngine:
+    """ゲームエンジンクラス"""
+    
     def __init__(self):
         self.winning_lines = WinningPatterns.generate_all_winning_lines()
         self.POSITION_VALUES = [
@@ -95,6 +75,7 @@ class GameEngine:
     
     def get_valid_moves(self, board: Board) -> List[Tuple[int, int]]:
         moves = []
+        # 中心から外側への順序でソート（Move Ordering）
         priority_positions = [
             (1,1), (2,1), (1,2), (2,2),
             (0,1), (3,1), (1,0), (1,3), (2,0), (2,3), (0,2), (3,2),
@@ -130,6 +111,7 @@ class GameEngine:
         return True
     
     def is_board_full(self, board: Board) -> bool:
+        """盤面が満杯かチェック"""
         for y in range(4):
             for x in range(4):
                 if board[3][y][x] == 0:
@@ -137,9 +119,11 @@ class GameEngine:
         return True
     
     def evaluate_position(self, board: Board, player: int) -> int:
+        """位置評価関数"""
         score = 0
         opponent = 3 - player
         
+        # ゲーム終了チェック
         if self.is_winning_position(board, player):
             return 10000
         if self.is_winning_position(board, opponent):
@@ -189,20 +173,16 @@ class GameEngine:
         
         return my_count, opponent_count
 
-class MyAI(Alg3D):
+class MinimaxAI(Alg3D):
     def __init__(self):
         self.game_engine = GameEngine()
-        self.transposition_table = TranspositionTable()
         self.start_time = 0
         self.time_limit = 8.5
+        self.nodes_searched = 0
     
-    def get_move(
-        self,
-        board: List[List[List[int]]],
-        player: int,
-        last_move: Tuple[int, int, int]
-    ) -> Tuple[int, int]:
+    def get_move(self, board: Board, player: int, last_move: Tuple[int, int, int]) -> Tuple[int, int]:
         self.start_time = time.time()
+        self.nodes_searched = 0
         
         # 即座勝利チェック
         winning_move = self.find_immediate_win(board, player)
@@ -217,7 +197,7 @@ class MyAI(Alg3D):
         
         # Iterative Deepening Minimax
         best_move = None
-        for depth in range(1, 8):
+        for depth in range(1, 10):  # 最大9手先まで
             if self.is_time_up():
                 break
             
@@ -228,6 +208,7 @@ class MyAI(Alg3D):
         return best_move if best_move else (1, 1)
     
     def find_immediate_win(self, board: Board, player: int) -> Optional[Tuple[int, int]]:
+        """即座勝利可能な手を探す"""
         for x in range(4):
             for y in range(4):
                 if self.game_engine.is_valid_move(board, x, y):
@@ -238,34 +219,26 @@ class MyAI(Alg3D):
     
     def minimax_with_alpha_beta(self, board: Board, depth: int, alpha: float, beta: float, 
                                maximizing_player: bool, original_player: int) -> Tuple[Optional[Tuple[int, int]], int]:
+        """Alpha-Beta枝刈り付きMinimax"""
+        self.nodes_searched += 1
         
+        # 時間制限チェック
         if self.is_time_up():
             return None, self.game_engine.evaluate_position(board, original_player)
         
-        # Transposition Table lookup
-        tt_result = self.transposition_table.lookup(board, depth)
-        if tt_result:
-            score, flag, best_move = tt_result
-            if flag == 'EXACT':
-                return best_move, score
-            elif flag == 'LOWERBOUND' and score >= beta:
-                return best_move, score
-            elif flag == 'UPPERBOUND' and score <= alpha:
-                return best_move, score
-        
+        # 終端ノードチェック
         if depth == 0 or self.game_engine.is_board_full(board):
-            score = self.game_engine.evaluate_position(board, original_player)
-            return None, score
+            return None, self.game_engine.evaluate_position(board, original_player)
         
         current_player = original_player if maximizing_player else (3 - original_player)
         
+        # 勝利チェック
         if self.game_engine.is_winning_position(board, current_player):
-            score = 10000 - (10 - depth)
+            score = 10000 - (10 - depth)  # 早い勝利を優先
             return None, score if maximizing_player else -score
         
         valid_moves = self.game_engine.get_valid_moves(board)
         best_move = None
-        original_alpha = alpha
         
         if maximizing_player:
             max_eval = float('-inf')
@@ -279,16 +252,8 @@ class MyAI(Alg3D):
                 
                 alpha = max(alpha, eval_score)
                 if beta <= alpha:
-                    break
+                    break  # Alpha-Beta枝刈り
             
-            # Transposition Table store
-            flag = 'EXACT'
-            if max_eval <= original_alpha:
-                flag = 'UPPERBOUND'
-            elif max_eval >= beta:
-                flag = 'LOWERBOUND'
-            
-            self.transposition_table.store(board, depth, max_eval, flag, best_move)
             return best_move, max_eval
         else:
             min_eval = float('inf')
@@ -302,17 +267,12 @@ class MyAI(Alg3D):
                 
                 beta = min(beta, eval_score)
                 if beta <= alpha:
-                    break
+                    break  # Alpha-Beta枝刈り
             
-            # Transposition Table store
-            flag = 'EXACT'
-            if min_eval <= original_alpha:
-                flag = 'UPPERBOUND'
-            elif min_eval >= beta:
-                flag = 'LOWERBOUND'
-            
-            self.transposition_table.store(board, depth, min_eval, flag, best_move)
             return best_move, min_eval
     
     def is_time_up(self) -> bool:
         return time.time() - self.start_time > self.time_limit
+
+class MyAI(MinimaxAI):
+    pass
