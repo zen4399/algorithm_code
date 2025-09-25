@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional
 import time
-from local_driver import Alg3D, Board # ローカル検証用
-#from framework import Alg3D, Board # 本番用
+#from local_driver import Alg3D, Board # ローカル検証用
+from framework import Alg3D, Board # 本番用
 
 class WinningPatterns:
     @staticmethod
